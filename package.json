@@ -1,0 +1,8 @@
+{
+  "name": "kurswahl-app",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@vercel/postgres": "^0.9.0"
+  }
+}
