@@ -28,19 +28,27 @@
     border: 2px solid transparent;
     border-radius: 10px;
     padding: 14px 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   .kurs-card.selected { border-color: var(--blue); }
-  .kurs-card.voll { opacity: 0.55; cursor: not-allowed; }
-  .kurs-name { font-weight: 600; }
-  .kurs-status { font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+  .kurs-card.voll { opacity: 0.75; }
+  .kurs-main { display: flex; justify-content: space-between; align-items: center; cursor: pointer; gap: 10px; }
+  .kurs-card.voll .kurs-main { cursor: not-allowed; }
+  .kurs-name { font-weight: 600; flex: 1; }
+  .kurs-status { font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
   .status-frei { background: #e6f4ea; color: var(--green); }
   .status-knapp { background: #fff4e0; color: #b26a00; }
   .status-voll { background: #fdecea; color: var(--red); }
+  .toggle-btn {
+    background: none; border: none; cursor: pointer; font-size: 1rem; color: #888;
+    padding: 4px 6px; transition: transform 0.15s ease; line-height: 1;
+  }
+  .toggle-btn.open { transform: rotate(180deg); }
+  .kurs-beschreibung {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
+    font-size: 0.88rem; color: #444; line-height: 1.4;
+  }
+  .kurs-beschreibung[hidden] { display: none; }
   form { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   label { display: block; font-weight: 600; margin-bottom: 6px; margin-top: 14px; font-size: 0.9rem; }
   input {
@@ -82,6 +90,7 @@
 <script>
 let kurse = [];
 let selectedKursId = null;
+let openBeschreibung = new Set();
 
 async function ladeKurse() {
   const res = await fetch('/api/status');
@@ -101,12 +110,35 @@ function renderKurse() {
     if (k.voll) { statusClass = 'status-voll'; statusText = 'VOLL'; }
     else if (k.frei <= 3) { statusClass = 'status-knapp'; statusText = `nur noch ${k.frei} frei`; }
 
+    const isOpen = openBeschreibung.has(k.id);
+    const beschreibungText = (k.beschreibung && k.beschreibung.trim())
+      ? k.beschreibung
+      : 'Beschreibung folgt in Kürze.';
+
     card.innerHTML = `
-      <span class="kurs-name">${k.name}</span>
-      <span class="kurs-status ${statusClass}">${statusText}</span>
+      <div class="kurs-main">
+        <span class="kurs-name">${k.name}</span>
+        <span class="kurs-status ${statusClass}">${statusText}</span>
+        <button type="button" class="toggle-btn${isOpen ? ' open' : ''}" aria-label="Beschreibung anzeigen">▾</button>
+      </div>
+      <div class="kurs-beschreibung" ${isOpen ? '' : 'hidden'}>${beschreibungText}</div>
     `;
+
+    const mainRow = card.querySelector('.kurs-main');
+    const toggleBtn = card.querySelector('.toggle-btn');
+
+    toggleBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (openBeschreibung.has(k.id)) {
+        openBeschreibung.delete(k.id);
+      } else {
+        openBeschreibung.add(k.id);
+      }
+      renderKurse();
+    });
+
     if (!k.voll) {
-      card.addEventListener('click', () => {
+      mainRow.addEventListener('click', () => {
         selectedKursId = k.id;
         renderKurse();
         const btn = document.getElementById('submitBtn');
