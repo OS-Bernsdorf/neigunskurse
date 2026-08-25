@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 
 const sql = neon(process.env.DATABASE_URL);
 
-// Öffentlicher Endpunkt: liefert NUR Kursnamen und freie Plätze.
+// Öffentlicher Endpunkt: liefert NUR Kursnamen, Beschreibung und freie Plätze.
 // Es werden hier bewusst keine Schülernamen zurückgegeben.
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -11,17 +11,18 @@ export default async function handler(req, res) {
 
   try {
     const rows = await sql`
-      SELECT k.id, k.name, k.kapazitaet,
+      SELECT k.id, k.name, k.kapazitaet, k.beschreibung,
              COUNT(a.id)::int AS belegt
       FROM kurse k
       LEFT JOIN anmeldungen a ON a.kurs_id = k.id
-      GROUP BY k.id, k.name, k.kapazitaet
+      GROUP BY k.id, k.name, k.kapazitaet, k.beschreibung
       ORDER BY k.id;
     `;
 
     const kurse = rows.map((k) => ({
       id: k.id,
       name: k.name,
+      beschreibung: k.beschreibung || '',
       kapazitaet: k.kapazitaet,
       belegt: k.belegt,
       frei: k.kapazitaet - k.belegt,
