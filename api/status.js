@@ -29,7 +29,10 @@ export default async function handler(req, res) {
       voll: k.belegt >= k.kapazitaet,
     }));
 
-    res.status(200).json({ kurse });
+    res.status(200).json({
+      kurse,
+      registrationStart: process.env.REGISTRATION_START || null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Serverfehler beim Laden der Kurse.' });
