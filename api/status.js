@@ -32,6 +32,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       kurse,
       registrationStart: process.env.REGISTRATION_START || null,
+      registrationEnd: process.env.REGISTRATION_END || null,
     });
   } catch (err) {
     console.error(err);
