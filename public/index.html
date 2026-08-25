@@ -61,8 +61,8 @@
     border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
   }
   button:disabled { background: #999; cursor: not-allowed; }
-  .msg { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; display: none; }
-  .msg.ok { background: #e6f4ea; color: var(--green); display: block; }
+  .msg { margin-top: 14px; padding: 12px 14px; border-radius: 8px; font-size: 0.95rem; display: none; }
+  .msg.ok { background: #e6f4ea; color: var(--green); display: block; font-weight: 600; border: 1px solid #b7ddc0; }
   .msg.err { background: #fdecea; color: var(--red); display: block; }
   footer { text-align: center; color: #888; font-size: 0.75rem; margin-top: 32px; line-height: 1.5; }
   .locked-box {
@@ -105,7 +105,7 @@
   <div class="kurse" id="kurse">Lade Kurse …</div>
 
   <div id="lockedBox" class="locked-box" style="display:none;">
-    <p>Die Anmeldung ist noch nicht geöffnet.</p>
+    <p id="lockedText">Die Anmeldung ist noch nicht geöffnet.</p>
     <div class="datum" id="lockedDatum"></div>
   </div>
 
@@ -156,8 +156,21 @@ async function ladeKurse() {
       kurseBox.style.display = 'none';
       form.style.display = 'none';
       lockedBox.style.display = 'block';
+      document.getElementById('lockedText').textContent = 'Die Anmeldung ist noch nicht geöffnet.';
       document.getElementById('lockedDatum').textContent =
         start.toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' }) + ' Uhr';
+      return;
+    }
+  }
+
+  if (data.registrationEnd) {
+    const end = new Date(data.registrationEnd);
+    if (!isNaN(end.getTime()) && new Date() > end) {
+      kurseBox.style.display = 'none';
+      form.style.display = 'none';
+      lockedBox.style.display = 'block';
+      document.getElementById('lockedText').textContent = 'Die Anmeldung ist beendet.';
+      document.getElementById('lockedDatum').textContent = '';
       return;
     }
   }
