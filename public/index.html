@@ -38,4 +38,199 @@
   .kurs-status { font-size: 0.85rem; padding: 4px 10px; border-radius: 999px; font-weight: 600; white-space: nowrap; }
   .status-frei { background: #e6f4ea; color: var(--green); }
   .status-knapp { background: #fff4e0; color: #b26a00; }
-  .status-voll {
+  .status-voll { background: #fdecea; color: var(--red); }
+  .toggle-btn {
+    background: none; border: none; cursor: pointer; font-size: 1rem; color: #888;
+    padding: 4px 6px; transition: transform 0.15s ease; line-height: 1;
+  }
+  .toggle-btn.open { transform: rotate(180deg); }
+  .kurs-beschreibung {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
+    font-size: 0.88rem; color: #444; line-height: 1.4;
+  }
+  .schul-logo { display: block; max-width: 280px; max-height: 110px; margin: 0 auto 16px; }
+  .kurs-beschreibung[hidden] { display: none; }
+  form { background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  label { display: block; font-weight: 600; margin-bottom: 6px; margin-top: 14px; font-size: 0.9rem; }
+  input {
+    width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px;
+    font-size: 1rem;
+  }
+  button {
+    margin-top: 20px; width: 100%; padding: 12px; background: var(--blue); color: #fff;
+    border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { background: #999; cursor: not-allowed; }
+  .msg { margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; display: none; }
+  .msg.ok { background: #e6f4ea; color: var(--green); display: block; }
+  .msg.err { background: #fdecea; color: var(--red); display: block; }
+  footer { text-align: center; color: #888; font-size: 0.75rem; margin-top: 32px; line-height: 1.5; }
+  .locked-box {
+    background: #fff; border-radius: 10px; padding: 28px 20px; text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .locked-box .datum { font-size: 1.2rem; font-weight: 700; color: var(--blue); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img src="/logo.jpg" alt="Schullogo" class="schul-logo" />
+  <h1>Anmeldung Neigungskurse</h1>
+  <p class="sub">Wähle einen Kurs aus und trage dich mit deinem Namen und deiner Klasse ein.</p>
+
+  <div class="kurse" id="kurse">Lade Kurse …</div>
+
+  <div id="lockedBox" class="locked-box" style="display:none;">
+    <p>Die Anmeldung ist noch nicht geöffnet.</p>
+    <div class="datum" id="lockedDatum"></div>
+  </div>
+
+  <form id="form">
+    <label for="name">Name</label>
+    <input type="text" id="name" required maxlength="100" placeholder="Vorname Nachname" />
+
+    <label for="klasse">Klasse</label>
+    <input type="text" id="klasse" required maxlength="20" placeholder="z. B. 7a" />
+
+    <button type="submit" id="submitBtn" disabled>Bitte zuerst einen Kurs auswählen</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <footer>
+    Es werden nur Name, Klasse und Kurswahl gespeichert – keine E-Mail-Adresse.<br />
+    Fragen zum Datenschutz? Wende dich an die Schulleitung bzw. die Datenschutzbeauftragte der Schule.
+  </footer>
+</div>
+
+<script>
+let kurse = [];
+let selectedKursId = null;
+let openBeschreibung = new Set();
+
+async function ladeKurse() {
+  const res = await fetch('/api/status');
+  const data = await res.json();
+  kurse = data.kurse || [];
+
+  const kurseBox = document.getElementById('kurse');
+  const form = document.getElementById('form');
+  const lockedBox = document.getElementById('lockedBox');
+
+  if (data.registrationStart) {
+    const start = new Date(data.registrationStart);
+    if (!isNaN(start.getTime()) && new Date() < start) {
+      kurseBox.style.display = 'none';
+      form.style.display = 'none';
+      lockedBox.style.display = 'block';
+      document.getElementById('lockedDatum').textContent =
+        start.toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' }) + ' Uhr';
+      return;
+    }
+  }
+
+  kurseBox.style.display = 'grid';
+  form.style.display = 'block';
+  lockedBox.style.display = 'none';
+  renderKurse();
+}
+
+function renderKurse() {
+  const el = document.getElementById('kurse');
+  el.innerHTML = '';
+  kurse.forEach((k) => {
+    const card = document.createElement('div');
+    card.className = 'kurs-card' + (k.voll ? ' voll' : '') + (k.id === selectedKursId ? ' selected' : '');
+    let statusClass = 'status-frei';
+    let statusText = `${k.frei} frei`;
+    if (k.voll) { statusClass = 'status-voll'; statusText = 'VOLL'; }
+    else if (k.frei <= 3) { statusClass = 'status-knapp'; statusText = `nur noch ${k.frei} frei`; }
+
+    const isOpen = openBeschreibung.has(k.id);
+    const beschreibungText = (k.beschreibung && k.beschreibung.trim())
+      ? k.beschreibung
+      : 'Beschreibung folgt in Kürze.';
+
+    card.innerHTML = `
+      <div class="kurs-main">
+        <span class="kurs-name">${k.name}</span>
+        <span class="kurs-status ${statusClass}">${statusText}</span>
+        <button type="button" class="toggle-btn${isOpen ? ' open' : ''}" aria-label="Beschreibung anzeigen">▾</button>
+      </div>
+      <div class="kurs-beschreibung" ${isOpen ? '' : 'hidden'}>${beschreibungText}</div>
+    `;
+
+    const mainRow = card.querySelector('.kurs-main');
+    const toggleBtn = card.querySelector('.toggle-btn');
+
+    toggleBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (openBeschreibung.has(k.id)) {
+        openBeschreibung.delete(k.id);
+      } else {
+        openBeschreibung.add(k.id);
+      }
+      renderKurse();
+    });
+
+    if (!k.voll) {
+      mainRow.addEventListener('click', () => {
+        selectedKursId = k.id;
+        renderKurse();
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = false;
+        btn.textContent = `Für "${k.name}" anmelden`;
+      });
+    }
+    el.appendChild(card);
+  });
+}
+
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.className = 'msg';
+  msg.textContent = '';
+
+  if (!selectedKursId) return;
+
+  const name = document.getElementById('name').value.trim();
+  const klasse = document.getElementById('klasse').value.trim();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Wird gesendet …';
+
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, klasse, kursId: selectedKursId }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.className = 'msg ok';
+      msg.textContent = `Anmeldung für "${data.kurs}" erfolgreich!`;
+      document.getElementById('form').reset();
+      selectedKursId = null;
+      btn.textContent = 'Bitte zuerst einen Kurs auswählen';
+      await ladeKurse();
+    } else {
+      msg.className = 'msg err';
+      msg.textContent = data.error || 'Es ist ein Fehler aufgetreten.';
+      btn.disabled = false;
+      btn.textContent = 'Erneut versuchen';
+      await ladeKurse();
+    }
+  } catch (err) {
+    msg.className = 'msg err';
+    msg.textContent = 'Verbindungsfehler. Bitte später erneut versuchen.';
+    btn.disabled = false;
+    btn.textContent = 'Erneut versuchen';
+  }
+});
+
+ladeKurse();
+setInterval(ladeKurse, 8000); // Live-Aktualisierung der freien Plätze
+</script>
+</body>
+</html>
