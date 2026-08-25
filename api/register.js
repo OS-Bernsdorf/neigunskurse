@@ -11,6 +11,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Serverseitige Startsperre: verhindert Anmeldungen vor dem offiziellen Start,
+  // auch wenn jemand versucht, direkt auf die Schnittstelle zuzugreifen.
+  const startEnv = process.env.REGISTRATION_START;
+  if (startEnv) {
+    const start = new Date(startEnv);
+    if (!isNaN(start.getTime()) && new Date() < start) {
+      return res.status(403).json({
+        error: `Die Anmeldung ist noch nicht geöffnet. Start: ${start.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })} Uhr`,
+      });
+    }
+  }
+
   const { name, klasse, kursId } = req.body || {};
 
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
