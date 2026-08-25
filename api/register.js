@@ -23,6 +23,17 @@ export default async function handler(req, res) {
     }
   }
 
+  // Serverseitige Endsperre: verhindert Anmeldungen nach Ablauf der Frist.
+  const endEnv = process.env.REGISTRATION_END;
+  if (endEnv) {
+    const end = new Date(endEnv);
+    if (!isNaN(end.getTime()) && new Date() > end) {
+      return res.status(403).json({
+        error: 'Die Anmeldung ist leider bereits beendet.',
+      });
+    }
+  }
+
   const { name, klasse, kursId } = req.body || {};
 
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
